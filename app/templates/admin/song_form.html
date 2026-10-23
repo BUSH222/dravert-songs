@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% set active = 'admin_songs' %}
+{% block title %}{{ song.title if song else 'Новая песня' }} · Управление · {{ t['site.short_title'] }}{% endblock %}
+
+{# Context:
+   form    : SongForm (raw string values, app/routes/admin.py)
+   song    : Song being edited, or None for a new song
+   errors  : dict field -> message
+   saved   : bool, show the "saved" notice
+   genres  : existing genres for autocomplete
+   min_year, max_year : allowed poem years (fixed decades 1900-1940) #}
+{% macro field_error(name) %}{% if errors[name] %}<div class="invalid-feedback d-block">{{ errors[name] }}</div>{% endif %}{% endmacro %}
+{% macro invalid(name) %}{% if errors[name] %} is-invalid{% endif %}{% endmacro %}
+
+{% block content %}
+<main class="flex-grow-1 w-100 mx-auto px-3 px-md-4 pt-4 pt-md-5 pb-5" style="max-width: 760px">
+  <p class="mb-2"><a href="{{ url_for('admin_songs') }}">← Все песни</a></p>
+  <h1 class="mb-4">{{ song.title if song else 'Новая песня' }}</h1>
+
+  {% if saved and song %}
+  <div class="alert alert-success d-flex flex-wrap align-items-center justify-content-between gap-2" role="status">
+    Сохранено.
+    <a class="alert-link" href="{{ url_for('song', decade=song.decade, song_id=song.id) }}">Открыть на сайте</a>
+  </div>
+  {% endif %}
+  {% if errors %}
+  <div class="alert alert-danger" role="alert">Исправьте ошибки ниже. Файл записи, если вы его выбирали, нужно выбрать заново.</div>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data"
+        action="{{ url_for('admin_song_update', song_id=song.id) if song else url_for('admin_song_create') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="mb-3">
+      <label class="form-label" for="f-title">Название</label>
+      <input class="form-control{{ invalid('title') }}" id="f-title" name="title" value="{{ form.title }}" required>
+      {{ field_error('title') }}
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-sm-4">
+        <label class="form-label" for="f-year">Год стихотворения</label>
+        <input class="form-control{{ invalid('year') }}" id="f-year" name="year" type="number" min="{{ min_year }}" max="{{ max_year }}" value="{{ form.year }}" required>
+        <div class="form-text">Определяет десятилетие.</div>
+        {{ field_error('year') }}
+      </div>
+      <div class="col-sm-5">
+        <label class="form-label" for="f-genre">Жанр</label>
+        <input class="form-control" id="f-genre" name="genre" value="{{ form.genre }}" list="genres" placeholder="Необязательно">
+        <datalist id="genres">{% for g in genres %}<option value="{{ g }}">{% endfor %}</datalist>
+      </div>
+      <div class="col-sm-3">
+        <label class="form-label" for="f-listens">Прослушано</label>
+        <input class="form-control{{ invalid('listens') }}" id="f-listens" name="listens" type="number" min="0" value="{{ form.listens }}">
+        {{ field_error('listens') }}
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="f-audio">Запись (MP3)</label>
+      {% if song and song.audio_file %}
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-2 small text-body-secondary">
+        Текущая запись: {{ '%d:%02d' % (song.duration // 60, song.duration % 60) }}
+        <a href="{{ url_for('audio', song_id=song.id) }}" target="_blank" rel="noopener">прослушать</a>
+      </div>
+      {% endif %}
+      <input class="form-control{{ invalid('audio') }}" id="f-audio" name="audio" type="file" accept=".mp3,audio/mpeg">
+      <div class="form-text">{% if song and song.audio_file %}Выберите файл, чтобы заменить запись.{% else %}Без записи плеер на странице песни не показывается.{% endif %}</div>
+      {{ field_error('audio') }}
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="f-description">Описание (HTML)</label>
+      <textarea class="form-control font-monospace" id="f-description" name="description" rows="3">{{ form.description }}</textarea>
+      <div class="form-text">Одна-две строки под названием. HTML вставляется как есть.</div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="f-epigraph">Эпиграф</label>
+      <textarea class="form-control" id="f-epigraph" name="epigraph" rows="2" placeholder="Необязательно">{{ form.epigraph }}</textarea>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="f-lyrics">Текст стихотворения</label>
+      <textarea class="form-control" id="f-lyrics" name="lyrics" rows="16" style="font-family: var(--dr-font-serif)">{{ form.lyrics }}</textarea>
+      <div class="form-text">Строфы разделяются пустой строкой.</div>
+    </div>
+
+    <div class="mb-4">
+      <label class="form-label" for="f-comments">Комментарии (HTML)</label>
+      <textarea class="form-control font-monospace" id="f-comments" name="comments" rows="5" placeholder="Необязательно">{{ form.comments }}</textarea>
+      <div class="form-text">Если поле пустое, блок «Комментарии» не показывается.</div>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+      <button class="btn btn-primary" type="submit">{{ 'Сохранить' if song else 'Создать песню' }}</button>
+      <a class="btn btn-outline-secondary" href="{{ url_for('admin_songs') }}">Отмена</a>
+    </div>
+  </form>
+
+  {% if song %}
+  <form class="border-top mt-5 pt-4" method="post" action="{{ url_for('admin_song_delete', song_id=song.id) }}"
+        data-confirm="Удалить песню «{{ song.title }}» вместе с записью? Это нельзя отменить.">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn btn-outline-danger" type="submit">Удалить песню</button>
+  </form>
+  {% endif %}
+</main>
+{% endblock %}

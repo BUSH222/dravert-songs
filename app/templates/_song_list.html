@@ -1,0 +1,9 @@
+{# Song list used twice on the decade page: desktop sidebar and mobile offcanvas.
+   Context: songs = list of Song; song = currently selected Song (or None); decade = int. #}
+<div class="list-group dr-songs gap-1">
+  {% for s in songs %}
+  <a href="{{ url_for('song', decade=decade, song_id=s.id) }}"
+     class="list-group-item list-group-item-action{% if song and s.id == song.id %} active{% endif %}"
+     {% if song and s.id == song.id %}aria-current="true"{% endif %}>{{ s.title }}</a>
+  {% endfor %}
+</div>

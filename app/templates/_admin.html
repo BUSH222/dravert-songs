@@ -1,0 +1,15 @@
+{# Admin helpers. Import with context: {% from "_admin.html" import edit_text, pencil with context %} #}
+
+{% macro pencil(size=14) -%}
+<svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16v4z"/><path d="m13.5 6.5 4 4"/></svg>
+{%- endmacro %}
+
+{# A small button that opens the shared text editor (base.html) for one key. Renders nothing for visitors.
+   label: optional visible caption; without it the button is icon-only. #}
+{% macro edit_text(key, label=None, cls="") -%}
+{% if is_admin %}{% set f = TEXTS[key] %}
+<button type="button" class="btn btn-outline-secondary dr-edit {{ cls }}" data-edit-text="{{ key }}"
+        data-label="{{ f.label }}" data-kind="{{ f.kind }}" data-hint="{{ f.hint }}" data-value="{{ t[key] }}"
+        title="Изменить: {{ f.label }}"{% if not label %} aria-label="Изменить: {{ f.label }}"{% endif %}>{{ pencil() }}{% if label %}{{ label }}{% endif %}</button>
+{%- endif %}
+{%- endmacro %}

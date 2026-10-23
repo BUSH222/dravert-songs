@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_admin.html" import edit_text, pencil with context %}
+{% set active = 'start' %}
+{% block title %}{{ t['nav.start'] }} · {{ t['site.title'] }}{% endblock %}
+
+{# Context: photos = list of {url, alt}, managed at /admin/photos. Texts come from t[...] (app/texts.py). #}
+{% block content %}
+<main class="flex-grow-1 w-100 mx-auto px-3 px-md-4 py-4 py-md-5" style="max-width: 1100px">
+  <div class="mb-4 mb-md-5">
+    <h1 class="mb-2" style="text-wrap: pretty">{{ t['start.heading']|safe }}{{ edit_text('start.heading', cls='ms-2') }}</h1>
+    <p class="fs-5 text-body-secondary mb-0">{{ t['start.subtitle'] }}{{ edit_text('start.subtitle', cls='ms-2') }}</p>
+  </div>
+
+  <div class="row g-4 g-lg-5">
+    {# Photos: vertical strip on desktop (lg+), horizontally scrollable row on phones. Not interactive. #}
+    {% if photos or is_admin %}
+    <div class="col-lg-auto">
+      {% if is_admin %}
+      <a class="btn btn-outline-secondary dr-edit mb-2" href="{{ url_for('admin_photos') }}">{{ pencil() }}Фотографии</a>
+      {% endif %}
+      <div class="d-flex flex-row flex-lg-column gap-2 gap-lg-3 overflow-x-auto dr-strip" aria-label="Архивные фотографии">
+        {% for photo in photos %}
+        <div class="dr-photo dr-ph flex-shrink-0" style="aspect-ratio: 1 / 1">
+          <img class="w-100 h-100 object-fit-cover" src="{{ photo.url }}" alt="{{ photo.alt }}" loading="lazy">
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="col-lg">
+      {{ edit_text('start.biography', 'Изменить текст', cls='mb-3') }}
+      <div class="dr-prose">{{ t['start.biography']|safe }}</div>
+    </div>
+  </div>
+</main>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Вход в панель управления{% endblock %}
+
+{# Context: error (str | None); username (str | None) – refill after a failed attempt; next (str | None) – where to go after login.
+   Only the theme toggle is shown in the header (no site navigation). #}
+{% block header %}
+<header class="d-flex justify-content-end px-2 px-md-3 py-2">
+  {% include "_theme_toggle.html" %}
+</header>
+{% endblock %}
+
+{% block content %}
+<main class="flex-grow-1 d-flex align-items-center justify-content-center px-3 py-4 bg-body-tertiary">
+  <div class="card w-100" style="max-width: 400px">
+    <div class="card-body p-4">
+      <p class="small text-body-secondary mb-1">Песни на стихи П.Л. Драверта</p>
+      <h1 class="h2 mb-4">Вход в панель управления</h1>
+      <form method="post" action="{{ url_for('admin_login') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+        <div class="mb-3">
+          <label class="form-label" for="login-user">Имя пользователя</label>
+          <input class="form-control" id="login-user" name="username" type="text" autocomplete="username" value="{{ username or '' }}" required{% if not username %} autofocus{% endif %}>
+        </div>
+        <div class="mb-4">
+          <label class="form-label" for="login-pass">Пароль</label>
+          <input class="form-control{% if error %} is-invalid{% endif %}" id="login-pass" name="password" type="password" autocomplete="current-password" required{% if username %} autofocus{% endif %}{% if error %} aria-describedby="login-err"{% endif %}>
+          {% if error %}<div class="invalid-feedback d-block" id="login-err" role="alert">{{ error }}</div>{% endif %}
+        </div>
+        <button class="btn btn-primary w-100" type="submit">Войти</button>
+      </form>
+    </div>
+  </div>
+</main>
+{% endblock %}

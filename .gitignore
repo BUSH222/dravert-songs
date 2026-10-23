@@ -146,3 +146,5 @@ cython_debug/
 
 # uv specific
 .uv/
+# App data (database, uploaded audio and photos)
+/data/

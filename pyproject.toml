@@ -1,13 +1,23 @@
 [project]
-name = "template"
+name = "dravert-songs"
 version = "0.1.0"
-description = "Add your description here"
+description = "Archive of songs on poems by P. L. Dravert"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "fastapi>=0.162.0",
+    "itsdangerous>=2.2.0",
+    "jinja2>=3.1.6",
+    "mutagen>=1.48.1",
+    "python-dotenv>=1.2.4",
+    "python-multipart>=0.0.32",
+    "uvicorn>=0.54.0",
+]
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.16.0",
     "pre-commit>=4.6.2",
+    "pytest>=9.1.1",
     "ruff>=0.16.5",
     "ty>=0.0.78",
 ]
@@ -39,6 +49,11 @@ select = [
     "TCH", # flake8-type-checking
 ]
 fixable = ["ALL"]
+# The site is in Russian: Cyrillic letters that look like Latin ones are expected in strings and comments.
+allowed-confusables = [
+    "А", "В", "Е", "З", "К", "М", "Н", "О", "Р", "С", "Т", "У", "Х", "Ь",
+    "а", "в", "г", "е", "к", "м", "н", "о", "п", "р", "с", "т", "у", "х", "ь", "ё", "Ё",
+]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]

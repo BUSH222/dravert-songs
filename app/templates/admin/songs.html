@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% set active = 'admin_songs' %}
+{% block title %}Песни · Управление · {{ t['site.short_title'] }}{% endblock %}
+
+{# Context: groups = list of (decade, list of Song); total = int #}
+{% block content %}
+<main class="flex-grow-1 w-100 mx-auto px-3 px-md-4 pt-4 pt-md-5 pb-5" style="max-width: 960px">
+  <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-4">
+    <div>
+      <h1 class="mb-1">Песни</h1>
+      <p class="text-body-secondary mb-0">Всего: {{ total }}</p>
+    </div>
+    <a class="btn btn-primary" href="{{ url_for('admin_song_new') }}">Добавить песню</a>
+  </div>
+
+  {% for decade, songs in groups %}
+  <section class="mb-4">
+    <div class="d-flex align-items-center justify-content-between gap-2 mt-4 mb-1 px-2">
+      <h2 class="dr-letter-h mb-0">{{ decade }}-е</h2>
+      <a class="btn btn-link btn-sm" href="{{ url_for('admin_song_new') }}?year={{ decade }}">+ песня</a>
+    </div>
+    {% if songs %}
+    <div class="list-group list-group-flush dr-rows">
+      {% for song in songs %}
+      <a href="{{ url_for('admin_song_edit', song_id=song.id) }}" class="list-group-item list-group-item-action">
+        <div class="row align-items-center g-1">
+          <div class="col-12 col-md dr-row-title">{{ song.title }}</div>
+          <div class="col-12 col-md-auto d-flex flex-wrap align-items-center gap-2">
+            {% if song.genre %}<span class="badge bg-primary-subtle text-primary-emphasis">{{ song.genre }}</span>{% endif %}
+            {% if not song.audio_file %}<span class="badge text-bg-warning">нет записи</span>{% endif %}
+            <span class="small text-body-secondary dr-tabnum">{{ song.year }}</span>
+            <span class="small text-body-secondary dr-tabnum" title="Прослушано">♫ {{ song.listens }}</span>
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="small text-body-secondary px-2 mb-0">Пока нет песен.</p>
+    {% endif %}
+  </section>
+  {% endfor %}
+</main>
+{% endblock %}

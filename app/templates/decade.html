@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% from "_admin.html" import edit_text, pencil with context %}
+{% set active = decade|string %}
+{% set list_heading = t['decade.heading'].replace('{decade}', decade|string) %}
+{% block title %}{% if song %}{{ song.title }} · {% endif %}{{ decade }}-е · {{ t['site.short_title'] }}{% endblock %}
+
+{# Context:
+   decade : int (1900 … 1940)
+   songs  : list of Song for this decade, in display order (poem year, then title)
+   song   : the selected Song (app/db.py), or None when the decade has no songs yet
+   The same template serves /decades/<decade> (first song preselected) and /decades/<decade>/songs/<id>. #}
+{% block content %}
+
+{% macro admin_list_actions() %}
+  {% if is_admin %}
+  <div class="d-flex flex-wrap gap-2 mb-2">
+    <a class="btn btn-outline-secondary dr-edit" href="{{ url_for('admin_song_new') }}?year={{ decade }}">{{ pencil() }}Добавить песню</a>
+    {{ edit_text('decade.heading', 'Заголовок') }}
+  </div>
+  {% endif %}
+{% endmacro %}
+
+{# Phone / tablet: button that opens the offcanvas with the song list #}
+{% if songs %}
+<div class="d-lg-none border-bottom px-3 py-2">
+  <button class="btn btn-outline-secondary" type="button" data-bs-toggle="offcanvas" data-bs-target="#songs" aria-controls="songs">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Песни
+  </button>
+</div>
+{% endif %}
+
+<div class="d-flex flex-grow-1">
+
+  {# Desktop sidebar: own scroll area, sticky below the 57px header #}
+  {% if songs %}
+  <aside class="d-none d-lg-block flex-shrink-0 border-end sticky-top overflow-y-auto"
+         style="width: 320px; top: 57px; height: calc(100vh - 57px); z-index: 1000" aria-label="Список песен">
+    <h2 class="mx-2 mt-3 mb-2 px-3 py-3 rounded-2" style="font-size: 28px; line-height: 1.3; letter-spacing: -.005em; background: var(--dr-tint-2)">{{ list_heading }}</h2>
+    <div class="px-2 pb-4">
+      {{ admin_list_actions() }}
+      {% include "_song_list.html" %}
+    </div>
+  </aside>
+  {% endif %}
+
+  <main class="flex-grow-1 px-3 px-lg-5 py-4 py-lg-5" style="min-width: 0">
+    {% if song %}
+    <article class="mx-auto" style="max-width: 44rem">
+      {% if is_admin %}
+      <a class="btn btn-outline-secondary dr-edit mb-3" href="{{ url_for('admin_song_edit', song_id=song.id) }}">{{ pencil() }}Редактировать песню</a>
+      {% endif %}
+      <h1 class="mb-2">{{ song.title }}</h1>
+
+      <div class="d-flex flex-wrap align-items-center gap-2 column-gap-3 small text-body-secondary mb-3">
+        <span>Стихотворение {{ song.year }} года</span>
+        {% if song.genre %}<span class="badge bg-primary-subtle text-primary-emphasis">{{ song.genre }}</span>{% endif %}
+        {# Read-only counter. The page never changes it; the server increments it. #}
+        <span class="d-inline-flex align-items-center gap-1 dr-tabnum">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17v-5a8 8 0 0 1 16 0v5"/><path d="M20 18.5a1.5 1.5 0 0 1-1.5 1.5H17a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h3v3.5zM4 18.5A1.5 1.5 0 0 0 5.5 20H7a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1H4v3.5z"/></svg>
+          Прослушано: {{ '{:,}'.format(song.listens).replace(',', ' ') }}
+        </span>
+      </div>
+
+      {% if song.description %}
+      <div class="dr-desc text-body-secondary mb-4">{{ song.description|safe }}</div>
+      {% endif %}
+
+      {% if song.audio_file %}{% include "_player.html" %}{% endif %}
+
+      {% if song.epigraph or song.stanzas %}
+      <div class="mt-5 mb-5" style="width: fit-content; max-width: 100%; margin-inline: auto">
+        <div class="dr-poem">
+          {% if song.epigraph %}<p class="dr-epigraph text-end mb-4">{% for line in song.epigraph.splitlines() %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>{% endif %}
+          {% for stanza in song.stanzas %}
+          <p>{% for line in stanza %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if song.comments %}
+      <section class="border-top pt-4" aria-labelledby="comments-h">
+        <h2 class="h4 text-body-secondary" id="comments-h" style="font-size: 1rem">{{ t['song.comments_heading'] }}{{ edit_text('song.comments_heading', cls='ms-2') }}</h2>
+        <div class="dr-comments small text-body-secondary">{{ song.comments|safe }}</div>
+      </section>
+      {% endif %}
+    </article>
+    {% else %}
+    {# Decade without songs #}
+    <div class="mx-auto" style="max-width: 44rem">
+      <h1 class="mb-3">{{ list_heading }}</h1>
+      <p class="text-body-secondary" style="white-space: pre-line">{{ t['decade.empty'] }}</p>
+      {% if is_admin %}
+      <div class="d-flex flex-wrap gap-2">
+        {{ admin_list_actions() }}
+        {{ edit_text('decade.empty', 'Текст «нет песен»', cls='mb-2') }}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </main>
+</div>
+
+{% if songs %}
+{# Phone offcanvas with the same song list. Clicking a link navigates (full page load), which closes it. #}
+<div class="offcanvas offcanvas-start" id="songs" tabindex="-1" aria-labelledby="songs-h" style="width: min(320px, 86%)">
+  <div class="offcanvas-header border-bottom py-2 ps-3 pe-2" style="background: var(--dr-tint-2)">
+    <h2 class="offcanvas-title mb-0" id="songs-h" style="font-size: 1.375rem; font-weight: 600">{{ list_heading }}</h2>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Закрыть"></button>
+  </div>
+  <div class="offcanvas-body p-2">
+    {{ admin_list_actions() }}
+    {% include "_song_list.html" %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

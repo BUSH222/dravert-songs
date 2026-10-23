@@ -1,0 +1,119 @@
+<!doctype html>
+{# Base layout. Child templates set `active` (see nav_items) and fill the blocks.
+   Every template also receives (see app/web.py): t (site texts), TEXTS, GLOBAL_KEYS, is_admin, csrf_token(). #}
+<html lang="ru" data-bs-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ t['site.title'] }}{% endblock %}</title>
+
+  {# Apply the saved / system theme BEFORE first paint to avoid a flash. #}
+  <script>
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem('theme'); } catch (e) {}
+      if (t !== 'light' && t !== 'dark') {
+        t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-bs-theme', t);
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=PT+Serif:ital,wght@0,400;0,700;1,400&display=swap">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/ds.css') }}">
+</head>
+<body class="dr-root d-flex flex-column min-vh-100">
+
+{% block header %}
+{% set nav_items = [
+  ('start',   t['nav.start'],   url_for('start')),
+  ('1900',    '1900-е',         url_for('decade', decade=1900)),
+  ('1910',    '1910-е',         url_for('decade', decade=1910)),
+  ('1920',    '1920-е',         url_for('decade', decade=1920)),
+  ('1930',    '1930-е',         url_for('decade', decade=1930)),
+  ('1940',    '1940-е',         url_for('decade', decade=1940)),
+  ('catalog', t['nav.catalog'], url_for('catalog')),
+] %}
+<header class="dr-header sticky-top" style="z-index: 1030">
+  <div class="d-flex align-items-center px-2 px-md-3">
+    <nav class="flex-grow-1" style="min-width: 0" aria-label="Основное меню">
+      <ul class="nav nav-underline flex-nowrap overflow-x-auto dr-strip mb-0 px-2">
+        {% for key, label, href in nav_items %}
+        <li class="nav-item">
+          <a class="nav-link{% if key == active %} active{% endif %}" href="{{ href }}"{% if key == active %} aria-current="page"{% endif %}>{{ label }}</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </nav>
+    {% include "_theme_toggle.html" %}
+  </div>
+</header>
+
+{% if is_admin %}
+{# Admin bar: visible only to the logged-in administrator, scrolls away with the page. #}
+<div class="dr-admin-bar px-3 px-md-4 py-1">
+  <div class="d-flex flex-wrap align-items-center gap-1 column-gap-2">
+    <span class="fw-semibold me-2">Администратор</span>
+    <a class="btn btn-link btn-sm{% if active == 'admin_songs' %} active{% endif %}" href="{{ url_for('admin_songs') }}">Песни</a>
+    <a class="btn btn-link btn-sm{% if active == 'admin_photos' %} active{% endif %}" href="{{ url_for('admin_photos') }}">Фотографии</a>
+    <div class="dropdown">
+      <button class="btn btn-link btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Общие тексты</button>
+      <ul class="dropdown-menu">
+        {% for key in GLOBAL_KEYS %}
+        <li><button type="button" class="dropdown-item" data-edit-text="{{ key }}" data-label="{{ TEXTS[key].label }}" data-kind="{{ TEXTS[key].kind }}" data-hint="{{ TEXTS[key].hint }}" data-value="{{ t[key] }}">{{ TEXTS[key].label }}</button></li>
+        {% endfor %}
+      </ul>
+    </div>
+    <form class="ms-auto" method="post" action="{{ url_for('admin_logout') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-link btn-sm" type="submit">Выйти</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block content %}{% endblock %}
+
+<footer class="border-top py-4 px-3 text-center small text-body-secondary mt-auto">{{ t['footer'] }}</footer>
+
+{% if is_admin %}
+{# Shared editor for every pencil button (data-edit-text). Filled and opened by static/js/admin.js. #}
+<div class="modal fade" id="text-modal" tabindex="-1" aria-labelledby="text-modal-h" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <form class="modal-content" method="post" action="{{ url_for('admin_text_update') }}">
+      <div class="modal-header">
+        <h2 class="modal-title h4" id="text-modal-h" data-label>Текст</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="key">
+        <input type="hidden" name="next" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+        <label class="visually-hidden" for="text-modal-value">Текст</label>
+        <textarea class="form-control" id="text-modal-value" name="value" rows="3"></textarea>
+        <div class="form-text" data-hint></div>
+        <div class="form-text" data-html-hint hidden>HTML вставляется на страницу как есть. Абзацы: <code>&lt;p&gt;…&lt;/p&gt;</code>, перенос строки: <code>&lt;br&gt;</code>, ссылка: <code>&lt;a href="…"&gt;…&lt;/a&gt;</code>.</div>
+        <div class="form-check mt-3">
+          <input class="form-check-input" type="checkbox" name="restore_default" value="1" id="text-modal-reset">
+          <label class="form-check-label" for="text-modal-reset">Вернуть исходный текст</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+        <button type="submit" class="btn btn-primary">Сохранить</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<script src="{{ url_for('static', path='js/bootstrap.bundle.min.js') }}"></script>
+<script src="{{ url_for('static', path='js/app.js') }}"></script>
+{% if is_admin %}<script src="{{ url_for('static', path='js/admin.js') }}"></script>{% endif %}
+{% block scripts %}{% endblock %}
+</body>
+</html>

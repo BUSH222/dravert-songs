@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% from "_admin.html" import edit_text with context %}
+{% set active = 'catalog' %}
+{% block title %}{{ t['catalog.heading'] }} · {{ t['site.short_title'] }}{% endblock %}
+
+{# Context:
+   mode      : 'alpha' | 'rating'   (from ?sort=alpha|rating, default alpha)
+   has_songs : bool
+   alpha     : groups = list of {letter, songs: list of Song}
+               letters = list of letters that actually have songs (for the jump bar)
+   rating    : ranked = list of Song, already sorted by listens DESC
+   Song      : app/db.py Song (id, title, decade, year, genre|None, listens)
+   Song URL  : url_for('song', decade=song.decade, song_id=song.id) #}
+{% block content %}
+<main class="flex-grow-1 w-100 mx-auto px-3 px-md-4 pt-4 pt-md-5 pb-5" style="max-width: 960px">
+  <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-4">
+    <div>
+      <h1 class="mb-1">{{ t['catalog.heading'] }}{{ edit_text('catalog.heading', cls='ms-2') }}</h1>
+      <p class="text-body-secondary mb-0">{{ t['catalog.subtitle'] }}{{ edit_text('catalog.subtitle', cls='ms-2') }}</p>
+    </div>
+    <div class="btn-group" role="group" aria-label="Порядок списка">
+      <a href="{{ url_for('catalog') }}?sort=alpha" class="btn btn-outline-secondary{% if mode == 'alpha' %} active{% endif %}"{% if mode == 'alpha' %} aria-current="true"{% endif %}>По алфавиту</a>
+      <a href="{{ url_for('catalog') }}?sort=rating" class="btn btn-outline-secondary{% if mode == 'rating' %} active{% endif %}"{% if mode == 'rating' %} aria-current="true"{% endif %}>Рейтинг</a>
+    </div>
+  </div>
+
+  {% macro badges(song) %}
+    {% if song.genre %}<span class="badge bg-primary-subtle text-primary-emphasis">{{ song.genre }}</span>{% endif %}
+    <span class="badge bg-body-secondary text-body-secondary">{{ song.decade }}-е</span>
+    <span class="small text-body-secondary dr-tabnum">{{ song.year }}</span>
+  {% endmacro %}
+
+  {% if not has_songs %}
+    <p class="text-body-secondary" style="white-space: pre-line">{{ t['catalog.empty'] }}</p>
+    {{ edit_text('catalog.empty', 'Текст «нет песен»') }}
+
+  {% elif mode == 'alpha' %}
+    {# Letter jump bar: desktop only, sticky below the header #}
+    <nav class="dr-letters sticky-top bg-body border-bottom py-2 mb-3 d-none d-md-flex flex-wrap gap-1" style="top: 57px; z-index: 1020" aria-label="Переход к букве">
+      {% for letter in letters %}
+      <a href="#l-{{ letter }}">{{ letter }}</a>
+      {% endfor %}
+    </nav>
+
+    {% for group in groups %}
+    <section class="mb-4">
+      <h2 class="dr-letter-h mt-4 mb-1 px-2" id="l-{{ group.letter }}">{{ group.letter }}</h2>
+      <div class="list-group list-group-flush dr-rows">
+        {% for song in group.songs %}
+        <a href="{{ url_for('song', decade=song.decade, song_id=song.id) }}" class="list-group-item list-group-item-action">
+          <div class="row align-items-center g-1">
+            <div class="col-12 col-md dr-row-title">{{ song.title }}</div>
+            <div class="col-12 col-md-auto d-flex flex-wrap align-items-center gap-2">{{ badges(song) }}</div>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+
+  {% else %}
+    <div class="list-group list-group-flush dr-rows">
+      {% for song in ranked %}
+      <a href="{{ url_for('song', decade=song.decade, song_id=song.id) }}" class="list-group-item list-group-item-action">
+        <div class="row align-items-center g-2">
+          <div class="col-auto dr-tabnum text-body-secondary text-end" style="width: 2.75rem">{{ loop.index }}</div>
+          <div class="col">
+            <div class="dr-row-title">{{ song.title }}</div>
+            {# On phones the metadata wraps under the title #}
+            <div class="d-flex d-md-none flex-wrap align-items-center gap-2 mt-1">{{ badges(song) }}</div>
+          </div>
+          <div class="col-md-auto d-none d-md-flex align-items-center gap-2">{{ badges(song) }}</div>
+          <div class="col-auto d-flex align-items-center gap-1 small text-body-secondary dr-tabnum" style="min-width: 5.5rem; justify-content: flex-end">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17v-5a8 8 0 0 1 16 0v5"/><path d="M20 18.5a1.5 1.5 0 0 1-1.5 1.5H17a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h3v3.5zM4 18.5A1.5 1.5 0 0 0 5.5 20H7a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1H4v3.5z"/></svg>
+            <span class="visually-hidden">Прослушано:</span>{{ '{:,}'.format(song.listens).replace(',', ' ') }}
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+</main>
+{% endblock %}

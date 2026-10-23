@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · {{ t['site.short_title'] }}{% endblock %}
+
+{# Context: status (int), title (str), detail (str | None) #}
+{% block content %}
+<main class="flex-grow-1 w-100 mx-auto px-3 px-md-4 py-5" style="max-width: 760px">
+  <p class="text-body-secondary dr-tabnum mb-1">{{ status }}</p>
+  <h1 class="mb-3">{{ title }}</h1>
+  {% if detail %}<p class="text-body-secondary">{{ detail }}</p>{% endif %}
+  <p class="mb-0"><a href="{{ url_for('start') }}">На стартовую страницу</a></p>
+</main>
+{% endblock %}
