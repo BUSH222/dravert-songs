@@ -1,9 +1,11 @@
 import re
+from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 from fastapi.testclient import TestClient
+from mutagen.id3 import APIC, COMM, ID3, TALB, TIT2, TPE1, TPE2
 
 from app.config import Settings
 from app.main import create_app
@@ -276,3 +278,37 @@ def test_photos(client: TestClient, settings: Settings) -> None:
     bad = [("files", ("notes.txt", b"x", "text/plain"))]
     response = client.post("/admin/photos", data={"csrf_token": admin_token(client)}, files=bad)
     assert response.status_code == 400
+
+
+def test_uploaded_mp3_tags_are_cleaned(client: TestClient, settings: Settings) -> None:
+    login(client)
+    dirty = ID3()
+    dirty.add(TIT2(encoding=3, text="Old"))
+    dirty.add(TPE1(encoding=3, text=["A", "B"]))
+    dirty.add(TPE2(encoding=3, text="Album artist"))
+    dirty.add(COMM(encoding=3, lang="eng", desc="", text="a comment"))
+    dirty.add(APIC(encoding=3, mime="image/png", type=3, desc="", data=b"png"))
+    dirty.add(TALB(encoding=3, text="Album"))
+    buf = BytesIO()
+    dirty.save(buf)
+    data = {"title": "Вечерняя тропа", "year": "1912", "lyrics": LYRICS, "csrf_token": admin_token(client)}
+    files = {"audio": ("song.mp3", buf.getvalue() + fake_mp3(), "audio/mpeg")}
+    response = client.post("/admin/songs/new", data=data, files=files, follow_redirects=False)
+    assert response.status_code == 303
+
+    def tags() -> ID3:
+        return ID3(next(settings.audio_dir.iterdir()))
+
+    t = tags()
+    assert t["TIT2"].text == ["Вечерняя тропа"]
+    assert t["TPE1"].text == ["P.L. Dravert"]
+    assert str(t["TDRC"].text[0]) == "1912"
+    assert not {"TPE2", "COMM::eng", "APIC:"} & set(t)
+    assert t["TALB"].text == ["Album"]  # unrelated frames are left alone
+
+    song_id = int(response.headers["location"].split("/admin/songs/")[1].split("?")[0])
+    data |= {"title": "Новое", "year": "1920", "csrf_token": admin_token(client)}
+    client.post(f"/admin/songs/{song_id}", data=data, files={"audio": ("", b"", "application/octet-stream")})
+    t = tags()
+    assert t["TIT2"].text == ["Новое"]
+    assert str(t["TDRC"].text[0]) == "1920"

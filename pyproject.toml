@@ -5,12 +5,14 @@ description = "Archive of songs on poems by P. L. Dravert"
 requires-python = ">=3.14"
 dependencies = [
     "fastapi>=0.162.0",
+    "gunicorn>=26.2.0",
     "itsdangerous>=2.2.0",
     "jinja2>=3.1.6",
     "mutagen>=1.48.1",
     "python-dotenv>=1.2.4",
     "python-multipart>=0.0.32",
     "uvicorn>=0.54.0",
+    "uvicorn-worker>=0.4.0",
 ]
 
 [dependency-groups]

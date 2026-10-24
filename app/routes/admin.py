@@ -9,6 +9,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import RedirectResponse, Response
 from mutagen import MutagenError
+from mutagen.id3 import ID3, TDRC, TIT2, TPE1, ID3NoHeaderError
 from mutagen.mp3 import MP3
 
 from app import db
@@ -35,6 +36,10 @@ router = APIRouter(prefix="/admin", dependencies=[Depends(require_admin)])
 
 CSRF = [Depends(verify_csrf)]
 PHOTO_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"}
+
+AUTHOR = "P.L. Dravert"
+# Frames removed from every stored MP3: comments, pictures, other artist roles and the dates other than the year.
+STRIPPED_FRAMES = ("COMM", "APIC", "TPE2", "TPE3", "TPE4", "TYER", "TDAT", "TIME", "TRDA", "TORY", "TDOR", "TDRL")
 
 FormStr = Annotated[str, Form()]
 NextUrl = Annotated[str, Form(alias="next")]
@@ -178,7 +183,21 @@ def _uploaded(file: UploadFile | None) -> UploadFile | None:
     return file if file is not None and file.filename else None
 
 
-def _store_audio(upload: UploadFile, audio_dir: Path) -> tuple[str, int]:
+def _clean_tags(path: Path, title: str, year: int) -> None:
+    """Rewrite the ID3 tag: only our title, author and year; no comments, pictures or other artists."""
+    try:
+        tags = ID3(path)
+    except ID3NoHeaderError:
+        tags = ID3()
+    for frame in STRIPPED_FRAMES:
+        tags.delall(frame)
+    tags.setall("TIT2", [TIT2(encoding=3, text=title)])
+    tags.setall("TPE1", [TPE1(encoding=3, text=AUTHOR)])
+    tags.setall("TDRC", [TDRC(encoding=3, text=str(year))])
+    tags.save(path, v1=0)  # v1=0 also drops the legacy ID3v1 block, which has its own artist and comment
+
+
+def _store_audio(upload: UploadFile, audio_dir: Path, title: str, year: int) -> tuple[str, int]:
     """Save an uploaded MP3 and return (file name, duration in seconds). Raises ValueError if it is not an MP3."""
     audio_dir.mkdir(parents=True, exist_ok=True)
     name = f"{uuid4().hex}.mp3"
@@ -192,6 +211,7 @@ def _store_audio(upload: UploadFile, audio_dir: Path) -> tuple[str, int]:
     if info is None:
         path.unlink(missing_ok=True)
         raise ValueError("Не удалось прочитать файл. Загрузите запись в формате MP3.")
+    _clean_tags(path, title, year)
     return name, round(info.length)
 
 
@@ -235,7 +255,7 @@ def song_create(
     stored = None
     if upload := _uploaded(audio):
         try:
-            stored = _store_audio(upload, settings.audio_dir)
+            stored = _store_audio(upload, settings.audio_dir, fields.title, fields.year)
         except ValueError as e:
             return _render_song_form(request, conn, form, None, {"audio": str(e)})
     with db.transaction(conn):
@@ -275,9 +295,11 @@ def song_update(
     stored = None
     if upload := _uploaded(audio):
         try:
-            stored = _store_audio(upload, settings.audio_dir)
+            stored = _store_audio(upload, settings.audio_dir, fields.title, fields.year)
         except ValueError as e:
             return _render_song_form(request, conn, form, song, {"audio": str(e)})
+    elif song.audio_file:  # the title or year may have changed, so refresh the tags of the kept recording
+        _clean_tags(settings.audio_dir / song.audio_file, fields.title, fields.year)
     with db.transaction(conn):
         db.update_song(conn, song_id, fields)
         db.set_song_listens(conn, song_id, listens)
